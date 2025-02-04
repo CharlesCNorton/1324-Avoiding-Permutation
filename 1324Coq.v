@@ -248,7 +248,6 @@ Proof.
   ring.
 Qed.
 
-Require Import Coq.micromega.Lia.
 
 Lemma fps_one_zero : forall (n : nat), n <> 0%nat -> fps_one n = 0%R.
 Proof.
@@ -268,4 +267,28 @@ Proof.
     apply Nat.eqb_eq in E. contradiction.
   - (* Case: n =? k = false *)
     reflexivity.
+Qed.
+
+Fixpoint sum_n (n: nat) : R :=
+  match n with
+  | 0 => 0
+  | S k => INR n + sum_n k
+  end.
+
+Require Import Reals.
+Open Scope R_scope.
+Fixpoint harmonic (n: nat) : R :=
+  match n with
+  | 0 => 0
+  | S k => / INR (S k) + harmonic k
+  end.
+
+(* --- Equality of Formal Power Series --- *)
+Lemma fps_eq_iff : forall (f g : fps),
+  fps_eq f g <-> (forall n, f n = g n).
+Proof.
+  intros f g.
+  split; intros H.
+  - exact H.
+  - exact H.
 Qed.
