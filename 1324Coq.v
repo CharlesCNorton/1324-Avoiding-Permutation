@@ -196,6 +196,7 @@ Proof.
   ring.
 Qed.
 
+
 Lemma G_candidate_zero_for_large_n : forall n, (n >= 9)%nat -> G_candidate n = 0.
 Proof.
   intros n H.
@@ -249,30 +250,22 @@ Qed.
 
 Require Import Coq.micromega.Lia.
 
-Lemma generating_eq_candidate_global : generating_eq G_candidate Q_candidate.
+Lemma fps_one_zero : forall (n : nat), n <> 0%nat -> fps_one n = 0%R.
 Proof.
-  unfold generating_eq, fps_eq.
-  intro n.
-  destruct (Nat.ltb n 9) eqn:Heqn.
-  - (* Case: n < 9 *)
-    destruct n as [| n0].
-    + apply G_candidate_eq_RHS_candidate_0.
-    + destruct n0 as [| n1].
-      * apply G_candidate_eq_RHS_candidate_1.
-      * destruct n1 as [| n2].
-        -- apply G_candidate_eq_RHS_candidate_2.
-        -- destruct n2 as [| n3].
-           ++ apply G_candidate_eq_RHS_candidate_3.
-           ++ destruct n3 as [| n4].
-              ** apply G_candidate_eq_RHS_candidate_4.
-              ** destruct n4 as [| n5].
-                 --- apply G_candidate_eq_RHS_candidate_5.
-                 --- destruct n5 as [| n6].
-                     +++ apply G_candidate_eq_RHS_candidate_6.
-                     +++ destruct n6 as [| n7].
-                         *** apply G_candidate_eq_RHS_candidate_7.
-                         *** destruct n7 as [| n8].
-                             **** apply G_candidate_eq_RHS_candidate_8.
-  - (* Case: n >= 9 *)
-    apply G_candidate_zero_for_large_n.
+  intros n H.
+  unfold fps_one.
+  destruct n as [| n'].
+  - exfalso. apply H. reflexivity.
+  - reflexivity.
+Qed.
+
+Lemma fps_monomial_zero : forall (k n : nat), n <> k -> fps_monomial k n = 0%R.
+Proof.
+  intros k n H.
+  unfold fps_monomial.
+  destruct (n =? k) eqn:E.
+  - (* Case: n =? k = true *)
+    apply Nat.eqb_eq in E. contradiction.
+  - (* Case: n =? k = false *)
+    reflexivity.
 Qed.
