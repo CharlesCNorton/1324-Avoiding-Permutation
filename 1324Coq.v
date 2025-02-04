@@ -222,3 +222,57 @@ Proof.
         (* At this point, n is of the form S (S (S (S (S (S (S (S n8))))))) *)
         reflexivity.
 Qed.
+
+Lemma Q_candidate_recurrence_3 : 
+  403 * Q_candidate (3%nat) - 5531 * Q_candidate (2%nat) + 23277 * Q_candidate (1%nat) - 29357 * Q_candidate (0%nat) = 0.
+Proof.
+  unfold Q_candidate.
+  simpl.
+  ring.
+Qed.
+
+Lemma Q_candidate_recurrence_4 : 
+  403 * Q_candidate (4%nat) - 5531 * Q_candidate (3%nat) + 23277 * Q_candidate (2%nat) - 29357 * Q_candidate (1%nat) = 0.
+Proof.
+  unfold Q_candidate.
+  simpl.
+  ring.
+Qed.
+
+Lemma Q_candidate_recurrence_5 : 
+  403 * Q_candidate (5%nat) - 5531 * Q_candidate (4%nat) + 23277 * Q_candidate (3%nat) - 29357 * Q_candidate (2%nat) = 0.
+Proof.
+  unfold Q_candidate.
+  simpl.
+  ring.
+Qed.
+
+Require Import Coq.micromega.Lia.
+
+Lemma generating_eq_candidate_global : generating_eq G_candidate Q_candidate.
+Proof.
+  unfold generating_eq, fps_eq.
+  intro n.
+  destruct (Nat.ltb n 9) eqn:Heqn.
+  - (* Case: n < 9 *)
+    destruct n as [| n0].
+    + apply G_candidate_eq_RHS_candidate_0.
+    + destruct n0 as [| n1].
+      * apply G_candidate_eq_RHS_candidate_1.
+      * destruct n1 as [| n2].
+        -- apply G_candidate_eq_RHS_candidate_2.
+        -- destruct n2 as [| n3].
+           ++ apply G_candidate_eq_RHS_candidate_3.
+           ++ destruct n3 as [| n4].
+              ** apply G_candidate_eq_RHS_candidate_4.
+              ** destruct n4 as [| n5].
+                 --- apply G_candidate_eq_RHS_candidate_5.
+                 --- destruct n5 as [| n6].
+                     +++ apply G_candidate_eq_RHS_candidate_6.
+                     +++ destruct n6 as [| n7].
+                         *** apply G_candidate_eq_RHS_candidate_7.
+                         *** destruct n7 as [| n8].
+                             **** apply G_candidate_eq_RHS_candidate_8.
+  - (* Case: n >= 9 *)
+    apply G_candidate_zero_for_large_n.
+Qed.
