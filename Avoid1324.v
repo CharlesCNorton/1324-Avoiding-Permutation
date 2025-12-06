@@ -2164,3 +2164,35 @@ Proof.
 Qed.
 
 End NewSequenceAnalysis.
+
+Section OEISCharacterization.
+
+Definition R_for_OEIS : list nat :=
+  [1%nat; 4%nat; 18%nat; 89%nat; 471%nat; 2630%nat; 15364%nat].
+
+Lemma R_OEIS_offset_2 : forall k, (k <= 6)%nat ->
+  nth k R_for_OEIS 0%nat = R_from_known (k + 2).
+Proof.
+  intros k Hle.
+  destruct k as [|[|[|[|[|[|[|]]]]]]]; try lia;
+  unfold R_for_OEIS, R_from_known, known_a_extended, known_catalan_extended;
+  vm_compute; reflexivity.
+Qed.
+
+Theorem R_equals_interior_count : forall n, (2 <= n)%nat -> (n <= 5)%nat ->
+  avoiding_with_max_interior n = R_from_known n.
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Theorem R_formula_verified : forall n, (1 <= n)%nat -> (n <= 8)%nat ->
+  R_from_known n = (nth n known_a_extended 0%nat - nth (n-1) known_catalan_extended 0%nat)%nat.
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|[|[|[|]]]]]]]]]; try lia;
+  unfold R_from_known, known_a_extended, known_catalan_extended;
+  vm_compute; reflexivity.
+Qed.
+
+End OEISCharacterization.
