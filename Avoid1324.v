@@ -608,14 +608,72 @@ Definition max_val (p : list nat) : nat :=
 Definition right_part (p : list nat) : list nat :=
   snd (split_at_max p).
 
+Lemma list_split_at_index : forall (A : Type) (l : list A) (k : nat) (d : A),
+  (k < length l)%nat -> l = firstn k l ++ nth k l d :: skipn (S k) l.
+Proof.
+  intros A l k d Hk.
+  generalize dependent k.
+  induction l as [|x xs IH]; intros k Hk.
+  - simpl in Hk. lia.
+  - destruct k as [|k'].
+    + simpl. reflexivity.
+    + simpl in Hk. simpl.
+      f_equal.
+      apply IH.
+      lia.
+Qed.
+
+Lemma max_position_bound : forall p,
+  p <> [] -> (max_position p < length p)%nat.
+Proof.
+  unfold max_position.
+  intro p.
+  set (find_pos := fix find_pos (idx : nat) (l : list nat) (best_idx best_val : nat) : nat :=
+    match l with
+    | [] => best_idx
+    | x :: xs => if Nat.ltb best_val x then find_pos (S idx) xs idx x else find_pos (S idx) xs best_idx best_val
+    end).
+  assert (Hgen: forall l idx bi bv, (bi < idx)%nat -> (find_pos idx l bi bv < idx + length l)%nat).
+  { induction l as [|x xs IH]; intros idx bi bv Hbi.
+    - simpl. lia.
+    - simpl. destruct (Nat.ltb bv x) eqn:Ecmp.
+      + assert (Hidx: (idx < S idx)%nat) by lia.
+        pose proof (IH (S idx) idx x Hidx) as HIH.
+        rewrite <- Nat.add_succ_comm. exact HIH.
+      + assert (Hbi': (bi < S idx)%nat) by lia.
+        pose proof (IH (S idx) bi bv Hbi') as HIH.
+        rewrite <- Nat.add_succ_comm. exact HIH.
+  }
+  intros Hne.
+  destruct p as [|a l].
+  - contradiction.
+  - simpl. destruct (Nat.ltb 0 a) eqn:E.
+    + destruct l as [|b l'].
+      * simpl. lia.
+      * assert (H0: (0 < 1)%nat) by lia.
+        pose proof (Hgen (b :: l') 1%nat 0%nat a H0) as HH.
+        simpl in HH. simpl. exact HH.
+    + destruct l as [|b l'].
+      * simpl. lia.
+      * assert (H0: (0 < 1)%nat) by lia.
+        pose proof (Hgen (b :: l') 1%nat 0%nat 0%nat H0) as HH.
+        simpl in HH. simpl. exact HH.
+Qed.
+
 Lemma split_reconstruction : forall p,
   p <> [] ->
   p = left_part p ++ [max_val p] ++ right_part p.
 Proof.
   intros p Hne.
   unfold left_part, max_val, right_part, split_at_max.
-  simpl.
-Admitted.
+  simpl fst. simpl snd.
+  set (pos := max_position p).
+  change ([nth pos p 0%nat] ++ skipn (S pos) p)
+    with (nth pos p 0%nat :: skipn (S pos) p).
+  apply list_split_at_index.
+  apply max_position_bound.
+  exact Hne.
+Qed.
 
 Definition interior_left_right_nonempty (p : list nat) : Prop :=
   max_in_interior p = true ->
@@ -648,6 +706,85 @@ Qed.
 Definition count_with_property (prop : list nat -> bool) (n : nat) : nat :=
   length (filter prop (perms_of_n n)).
 
+Lemma filter_partition : forall (A : Type) (f g : A -> bool) (l : list A),
+  (length (filter (fun x => f x && g x) l) +
+   length (filter (fun x => f x && negb (g x)) l))%nat =
+  length (filter f l).
+Proof.
+  intros A f g l.
+  induction l as [|x xs IH].
+  - simpl. reflexivity.
+  - simpl. destruct (f x) eqn:Ef; destruct (g x) eqn:Eg; simpl.
+    + f_equal. exact IH.
+    + rewrite Nat.add_succ_r. f_equal. exact IH.
+    + exact IH.
+    + exact IH.
+Qed.
+
+Lemma max_in_interior_negb_max_at_end : forall p,
+  (length p > 0)%nat ->
+  max_in_interior p = negb (max_at_end p).
+Proof.
+  intros p Hlen.
+  unfold max_in_interior.
+  destruct (length p =? 0)%nat eqn:Elen.
+  - apply Nat.eqb_eq in Elen. lia.
+  - rewrite andb_true_r. reflexivity.
+Qed.
+
+Lemma insert_at_length : forall (A : Type) (x : A) (l : list A) (i : nat),
+  (i <= length l)%nat ->
+  length (firstn i l ++ x :: skipn i l) = S (length l).
+Proof.
+  intros A x l i Hi.
+  rewrite app_length. simpl.
+  rewrite firstn_length_le by lia.
+  rewrite skipn_length.
+  lia.
+Qed.
+
+Lemma in_map_inv : forall (A B : Type) (f : A -> B) (l : list A) (y : B),
+  In y (map f l) -> exists x, In x l /\ y = f x.
+Proof.
+  intros A B f l y Hin.
+  induction l as [|a l' IH].
+  - simpl in Hin. destruct Hin.
+  - simpl in Hin. destruct Hin as [Heq | Hrest].
+    + exists a. split. { left. reflexivity. } symmetry. exact Heq.
+    + destruct (IH Hrest) as [x [Hx1 Hx2]].
+      exists x. split. { right. exact Hx1. } exact Hx2.
+Qed.
+
+Lemma all_perms_length : forall l p,
+  In p (all_perms l) -> length p = length l.
+Proof.
+  induction l as [|x xs IH]; intros p Hin.
+  - simpl in Hin. destruct Hin as [Heq | []]. subst. reflexivity.
+  - simpl in Hin.
+    apply in_flat_map in Hin.
+    destruct Hin as [q [Hinq Hinp]].
+    specialize (IH q Hinq).
+    simpl in Hinp.
+    destruct Hinp as [Heq | Hinp'].
+    + subst p. simpl. lia.
+    + apply in_map_inv in Hinp'.
+      destruct Hinp' as [i [Hiseq Heq]].
+      subst p.
+      apply in_seq in Hiseq.
+      simpl. rewrite insert_at_length by lia.
+      lia.
+Qed.
+
+Lemma perms_of_n_length : forall n p,
+  In p (perms_of_n n) -> length p = n.
+Proof.
+  intros n p Hin.
+  unfold perms_of_n in Hin.
+  apply all_perms_length in Hin.
+  rewrite seq_length in Hin.
+  exact Hin.
+Qed.
+
 Lemma decomposition_exhaustive : forall n,
   (count_with_property (fun p => avoids_1324 p && max_at_end p) n +
    count_with_property (fun p => avoids_1324 p && max_in_interior p) n)%nat =
@@ -655,7 +792,22 @@ Lemma decomposition_exhaustive : forall n,
 Proof.
   intros n.
   unfold count_with_property, count_1324_avoiding.
-Admitted.
+  destruct n.
+  - vm_compute. reflexivity.
+  - assert (Hpart: forall p, In p (perms_of_n (S n)) ->
+      avoids_1324 p && max_in_interior p = avoids_1324 p && negb (max_at_end p)).
+    { intros p Hin.
+      destruct (avoids_1324 p) eqn:Eav.
+      - simpl. apply max_in_interior_negb_max_at_end.
+        pose proof (perms_of_n_length (S n) p Hin) as Hlen.
+        lia.
+      - simpl. reflexivity.
+    }
+    rewrite Nat.add_comm.
+    rewrite (filter_ext_in _ (fun p => avoids_1324 p && negb (max_at_end p))).
+    + rewrite Nat.add_comm. apply filter_partition.
+    + intros p Hin. apply Hpart. exact Hin.
+Qed.
 
 End GeneralDecomposition.
 
