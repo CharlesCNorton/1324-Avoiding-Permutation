@@ -1259,3 +1259,52 @@ Proof.
 Qed.
 
 End MainResultsSummary.
+
+Section GeneralCatalanBijection.
+
+Lemma append_singleton_length : forall (A : Type) (l : list A) (x : A),
+  length (l ++ [x]) = S (length l).
+Proof.
+  intros. rewrite app_length. simpl. lia.
+Qed.
+
+Lemma removelast_app_singleton : forall (A : Type) (l : list A) (x : A),
+  removelast (l ++ [x]) = l.
+Proof.
+  intros A l x.
+  induction l as [|a l' IH].
+  - simpl. reflexivity.
+  - simpl. rewrite IH.
+    destruct l' as [|b l''].
+    + simpl. reflexivity.
+    + simpl. reflexivity.
+Qed.
+
+Lemma append_singleton_injective : forall (A : Type) (l1 l2 : list A) (x : A),
+  l1 ++ [x] = l2 ++ [x] -> l1 = l2.
+Proof.
+  intros A l1 l2 x Heq.
+  apply (f_equal (@removelast A)) in Heq.
+  rewrite !removelast_app_singleton in Heq.
+  exact Heq.
+Qed.
+
+Lemma seq_perm_max : forall sigma n,
+  Permutation sigma (seq 1 (n - 1)) ->
+  (forall x, In x sigma -> (x < n)%nat).
+Proof.
+  intros sigma n Hperm x Hin.
+  apply Permutation_in with (x := x) in Hperm.
+  - apply in_seq in Hperm. lia.
+  - exact Hin.
+Qed.
+
+Theorem catalan_bijection_verified :
+  forall n, (n >= 1)%nat -> (n <= 5)%nat ->
+  avoiding_with_max_at_end n = count_132_avoiding (n - 1).
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+End GeneralCatalanBijection.
