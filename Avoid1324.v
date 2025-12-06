@@ -2053,3 +2053,29 @@ Proof.
 Qed.
 
 End StanleyWilfBounds.
+
+Section ComprehensiveSummary.
+
+Theorem main_theorem_bool : forall sigma n,
+  (forall x, In x sigma -> (x < n)%nat) ->
+  avoids_1324 (sigma ++ [n]) = avoids_132 sigma.
+Proof. exact catalan_bijection_bool. Qed.
+
+Theorem main_theorem_prop : forall sigma n,
+  (forall x, In x sigma -> (x < n)%nat) ->
+  (~ contains_1324 (sigma ++ [n]) <-> ~ contains_132 sigma).
+Proof. exact max_end_1324_iff_prefix_132. Qed.
+
+Theorem catalan_component : forall n, (n >= 1)%nat -> (n <= 5)%nat ->
+  avoiding_with_max_at_end n = catalan_compute (n - 1).
+Proof. exact max_at_end_equals_catalan. Qed.
+
+Theorem pattern_containment_chain : forall p,
+  contains_1324 p -> contains_132 p.
+Proof. exact thm_132_subpattern_of_1324. Qed.
+
+Theorem bijection_to_dyck : forall n, (n >= 1)%nat -> (n <= 5)%nat ->
+  avoiding_with_max_at_end n = count_dyck_paths (n - 1).
+Proof. exact complete_chain. Qed.
+
+End ComprehensiveSummary.
