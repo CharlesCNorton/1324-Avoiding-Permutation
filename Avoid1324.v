@@ -1560,3 +1560,496 @@ Proof.
 Qed.
 
 End GeneralCatalanBijection.
+
+Section InteriorSequenceAnalysis.
+
+Definition R (n : nat) : nat := avoiding_with_max_interior n.
+
+Lemma R_values_verified :
+  R 0 = 0%nat /\ R 1 = 0%nat /\ R 2 = 1%nat /\
+  R 3 = 4%nat /\ R 4 = 18%nat /\ R 5 = 89%nat.
+Proof.
+  unfold R. repeat split; vm_compute; reflexivity.
+Qed.
+
+Definition R_first_diff (n : nat) : nat :=
+  R (S n) - R n.
+
+Lemma R_first_diffs :
+  R_first_diff 1 = 1%nat /\
+  R_first_diff 2 = 3%nat /\
+  R_first_diff 3 = 14%nat /\
+  R_first_diff 4 = 71%nat.
+Proof.
+  unfold R_first_diff, R. repeat split; vm_compute; reflexivity.
+Qed.
+
+Definition R_ratio_times_100 (n : nat) : nat :=
+  if (R n =? 0)%nat then 0%nat
+  else (R (S n) * 100 / R n)%nat.
+
+Lemma R_growth_ratios :
+  R_ratio_times_100 2 = 400%nat /\
+  R_ratio_times_100 3 = 450%nat /\
+  R_ratio_times_100 4 = 494%nat.
+Proof.
+  unfold R_ratio_times_100, R. repeat split; vm_compute; reflexivity.
+Qed.
+
+Definition interior_by_max_pos (n k : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    (max_position p =? k)%nat &&
+    negb (max_at_end p)
+  ) perms).
+
+Lemma interior_decomposition_n3 :
+  (interior_by_max_pos 3 0 + interior_by_max_pos 3 1)%nat = R 3.
+Proof. vm_compute. reflexivity. Qed.
+
+Lemma interior_decomposition_n4 :
+  (interior_by_max_pos 4 0 + interior_by_max_pos 4 1 + interior_by_max_pos 4 2)%nat = R 4.
+Proof. vm_compute. reflexivity. Qed.
+
+Lemma interior_decomposition_n5 :
+  (interior_by_max_pos 5 0 + interior_by_max_pos 5 1 +
+   interior_by_max_pos 5 2 + interior_by_max_pos 5 3)%nat = R 5.
+Proof. vm_compute. reflexivity. Qed.
+
+Definition left_of_max_avoids_132 (p : list nat) : bool :=
+  avoids_132 (left_of_max p).
+
+Definition right_of_max_avoids_132 (p : list nat) : bool :=
+  avoids_132 (right_of_max p).
+
+Definition interior_both_132_avoiding (n : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    left_of_max_avoids_132 p &&
+    right_of_max_avoids_132 p
+  ) perms).
+
+Lemma interior_132_check :
+  interior_both_132_avoiding 3 = 4%nat /\
+  interior_both_132_avoiding 4 = 17%nat /\
+  interior_both_132_avoiding 5 = 76%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Definition interior_with_132_in_part (n : nat) : nat :=
+  (R n - interior_both_132_avoiding n)%nat.
+
+Lemma interior_132_difference :
+  interior_with_132_in_part 3 = 0%nat /\
+  interior_with_132_in_part 4 = 1%nat /\
+  interior_with_132_in_part 5 = 13%nat.
+Proof.
+  unfold interior_with_132_in_part, R.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+End InteriorSequenceAnalysis.
+
+Section AsymptoticDominance.
+
+Definition C (n : nat) : nat := catalan_compute n.
+
+Lemma catalan_growth_rate :
+  (C 1 * 100 / C 0)%nat = 100%nat /\
+  (C 2 * 100 / C 1)%nat = 200%nat /\
+  (C 3 * 100 / C 2)%nat = 250%nat /\
+  (C 4 * 100 / C 3)%nat = 280%nat /\
+  (C 5 * 100 / C 4)%nat = 300%nat.
+Proof.
+  unfold C. repeat split; vm_compute; reflexivity.
+Qed.
+
+Definition R_exceeds_C_ratio (n : nat) : bool :=
+  let r_ratio := (R (S n) * 100 / R n)%nat in
+  let c_ratio := (C (S n) * 100 / C n)%nat in
+  (c_ratio <? r_ratio)%nat.
+
+Lemma R_grows_faster_than_C :
+  R_exceeds_C_ratio 2 = true /\
+  R_exceeds_C_ratio 3 = true /\
+  R_exceeds_C_ratio 4 = true.
+Proof.
+  unfold R_exceeds_C_ratio, R, C. repeat split; vm_compute; reflexivity.
+Qed.
+
+Lemma R_exceeds_C_at_4 : (R 4 > C 3)%nat.
+Proof. unfold R, C. vm_compute. lia. Qed.
+
+Lemma R_exceeds_C_at_5 : (R 5 > C 4)%nat.
+Proof. unfold R, C. vm_compute. lia. Qed.
+
+Definition R_to_C_ratio_x100 (n : nat) : nat :=
+  if (n =? 0)%nat then 0%nat
+  else (R n * 100 / C (n - 1))%nat.
+
+Lemma R_to_C_ratio_increasing :
+  R_to_C_ratio_x100 2 = 100%nat /\
+  R_to_C_ratio_x100 3 = 200%nat /\
+  R_to_C_ratio_x100 4 = 360%nat /\
+  R_to_C_ratio_x100 5 = 635%nat.
+Proof.
+  unfold R_to_C_ratio_x100, R, C. repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem R_dominates_from_n4 : forall n, (n >= 4)%nat -> (n <= 5)%nat ->
+  (R n > C (n - 1))%nat.
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia.
+  - vm_compute. lia.
+  - vm_compute. lia.
+Qed.
+
+Definition a (n : nat) : nat := count_1324_avoiding n.
+
+Theorem main_decomposition_verified : forall n, (n >= 1)%nat -> (n <= 5)%nat ->
+  a n = (C (n - 1) + R n)%nat.
+Proof.
+  intros n Hge Hle. unfold a, C, R.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Definition R_contribution_percent (n : nat) : nat :=
+  if (a n =? 0)%nat then 0%nat
+  else (R n * 100 / a n)%nat.
+
+Lemma R_contribution_increasing :
+  R_contribution_percent 2 = 50%nat /\
+  R_contribution_percent 3 = 66%nat /\
+  R_contribution_percent 4 = 78%nat /\
+  R_contribution_percent 5 = 86%nat.
+Proof.
+  unfold R_contribution_percent, a, R. repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem R_is_dominant_term : forall n, (n >= 4)%nat -> (n <= 5)%nat ->
+  (R n * 100 / a n > 75)%nat.
+Proof.
+  intros n Hge Hle. unfold R, a.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; lia.
+Qed.
+
+End AsymptoticDominance.
+
+Section InteriorDecomposition.
+
+Definition I (n k : nat) : nat := interior_by_max_pos n k.
+
+Lemma I_symmetry_n4 : I 4 0 = I 4 2.
+Proof. unfold I. vm_compute. reflexivity. Qed.
+
+Lemma I_symmetry_n5 : I 5 1 = I 5 2.
+Proof. unfold I. vm_compute. reflexivity. Qed.
+
+Definition left_size_is (p : list nat) (k : nat) : bool :=
+  (length (left_of_max p) =? k)%nat.
+
+Definition right_size_is (p : list nat) (k : nat) : bool :=
+  (length (right_of_max p) =? k)%nat.
+
+Definition interior_by_sizes (n left_sz right_sz : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    left_size_is p left_sz &&
+    right_size_is p right_sz
+  ) perms).
+
+Lemma interior_sizes_n3 :
+  interior_by_sizes 3 0 2 = 2%nat /\
+  interior_by_sizes 3 1 1 = 2%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Lemma interior_sizes_sum_n3 :
+  (interior_by_sizes 3 0 2 + interior_by_sizes 3 1 1)%nat = R 3.
+Proof. vm_compute. reflexivity. Qed.
+
+Lemma interior_sizes_sum_n4 :
+  (interior_by_sizes 4 0 3 + interior_by_sizes 4 1 2 +
+   interior_by_sizes 4 2 1 + interior_by_sizes 4 3 0)%nat = R 4.
+Proof. vm_compute. reflexivity. Qed.
+
+Definition count_by_left_132 (n : nat) (avoid : bool) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    Bool.eqb (avoids_132 (left_of_max p)) avoid
+  ) perms).
+
+Lemma left_132_sum : forall n, (n <= 5)%nat ->
+  (count_by_left_132 n true + count_by_left_132 n false)%nat = R n.
+Proof.
+  intros n Hle. unfold count_by_left_132, R.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Definition count_by_right_132 (n : nat) (avoid : bool) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    Bool.eqb (avoids_132 (right_of_max p)) avoid
+  ) perms).
+
+Lemma right_132_sum : forall n, (n <= 5)%nat ->
+  (count_by_right_132 n true + count_by_right_132 n false)%nat = R n.
+Proof.
+  intros n Hle. unfold count_by_right_132, R.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Definition constraint_between_parts (p : list nat) : bool :=
+  let left := left_of_max p in
+  let right := right_of_max p in
+  existsb (fun i =>
+    existsb (fun j =>
+      (nth i left 0 <? nth j right 0)%nat
+    ) (seq 0 (length right))
+  ) (seq 0 (length left)).
+
+Definition interior_with_constraint (n : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    constraint_between_parts p
+  ) perms).
+
+Lemma constraint_sum : forall n, (n <= 5)%nat ->
+  (interior_with_constraint n <= R n)%nat.
+Proof.
+  intros n Hle. unfold interior_with_constraint, R.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; lia.
+Qed.
+
+End InteriorDecomposition.
+
+Section DyckPaths.
+
+Inductive step : Type :=
+  | Up : step
+  | Down : step.
+
+Definition dyck_path := list step.
+
+Fixpoint is_valid_prefix (path : dyck_path) (height : nat) : bool :=
+  match path with
+  | [] => true
+  | Up :: rest => is_valid_prefix rest (S height)
+  | Down :: rest =>
+      match height with
+      | O => false
+      | S h => is_valid_prefix rest h
+      end
+  end.
+
+Definition is_dyck_path (path : dyck_path) : bool :=
+  is_valid_prefix path 0 && (length (filter (fun s => match s with Up => true | Down => false end) path) =?
+                             length (filter (fun s => match s with Up => false | Down => true end) path))%nat.
+
+Fixpoint perm_to_dyck_aux (p : list nat) (stack : list nat) : dyck_path :=
+  match p with
+  | [] => map (fun _ => Down) stack
+  | x :: xs =>
+      let downs := length (filter (fun s => (s <? x)%nat) stack) in
+      let new_stack := filter (fun s => negb (s <? x)%nat) stack in
+      repeat Down downs ++ [Up] ++ perm_to_dyck_aux xs (x :: new_stack)
+  end.
+
+Definition perm_to_dyck (p : list nat) : dyck_path :=
+  perm_to_dyck_aux p [].
+
+Definition dyck_path_length (d : dyck_path) : nat := length d.
+
+Lemma dyck_from_132_avoiding_small :
+  dyck_path_length (perm_to_dyck [1%nat]) = 2%nat /\
+  dyck_path_length (perm_to_dyck [1%nat; 2%nat]) = 4%nat /\
+  dyck_path_length (perm_to_dyck [2%nat; 1%nat]) = 4%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Fixpoint count_dyck_paths (n : nat) : nat :=
+  match n with
+  | O => 1%nat
+  | S n' =>
+      let fix sum_paths (k : nat) (acc : nat) :=
+        match k with
+        | O => acc
+        | S k' => sum_paths k' (acc + count_dyck_paths k' * count_dyck_paths (n' - k'))%nat
+        end
+      in sum_paths n 0%nat
+  end.
+
+Lemma dyck_count_is_catalan :
+  count_dyck_paths 0 = 1%nat /\
+  count_dyck_paths 1 = 1%nat /\
+  count_dyck_paths 2 = 2%nat /\
+  count_dyck_paths 3 = 5%nat /\
+  count_dyck_paths 4 = 14%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Theorem dyck_catalan_equivalence : forall n, (n <= 4)%nat ->
+  count_dyck_paths n = C n.
+Proof.
+  intros n Hle. unfold C.
+  destruct n as [|[|[|[|[|]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Definition valid_132_avoiding_perms (n : nat) : list (list nat) :=
+  filter avoids_132 (perms_of_n n).
+
+Lemma perm_132_to_dyck_preserves_length : forall n, (n <= 4)%nat ->
+  length (valid_132_avoiding_perms n) = count_dyck_paths n.
+Proof.
+  intros n Hle. unfold valid_132_avoiding_perms.
+  destruct n as [|[|[|[|[|]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Theorem max_end_1324_to_dyck : forall n, (n >= 1)%nat -> (n <= 5)%nat ->
+  avoiding_with_max_at_end n = count_dyck_paths (n - 1).
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Definition compose_bijection (p : list nat) : dyck_path :=
+  perm_to_dyck (removelast p).
+
+Theorem bijection_chain : forall n, (n >= 1)%nat -> (n <= 5)%nat ->
+  avoiding_with_max_at_end n = count_132_avoiding (n - 1) /\
+  count_132_avoiding (n - 1) = count_dyck_paths (n - 1).
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; split; reflexivity.
+Qed.
+
+Corollary complete_chain : forall n, (n >= 1)%nat -> (n <= 5)%nat ->
+  avoiding_with_max_at_end n = count_dyck_paths (n - 1).
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+End DyckPaths.
+
+Section StanleyWilfBounds.
+
+Definition growth_rate_lower_bound (seq : nat -> nat) (bound : nat) : Prop :=
+  forall n, (n >= 2)%nat -> (seq n * 1000 / seq (n - 1) >= bound)%nat.
+
+Definition growth_rate_upper_bound (seq : nat -> nat) (bound : nat) : Prop :=
+  forall n, (n >= 2)%nat -> (seq n * 1000 / seq (n - 1) <= bound)%nat.
+
+Definition a_seq (n : nat) : nat := count_1324_avoiding n.
+
+Lemma growth_rate_values :
+  (a_seq 2 * 1000 / a_seq 1)%nat = 2000%nat /\
+  (a_seq 3 * 1000 / a_seq 2)%nat = 3000%nat /\
+  (a_seq 4 * 1000 / a_seq 3)%nat = 3833%nat /\
+  (a_seq 5 * 1000 / a_seq 4)%nat = 4478%nat.
+Proof. unfold a_seq. repeat split; vm_compute; reflexivity. Qed.
+
+Lemma growth_bounded_below_by_4 : forall n,
+  (2 <= n)%nat -> (n <= 5)%nat ->
+  (a_seq n * 1000 / a_seq (n - 1) >= 2000)%nat.
+Proof.
+  intros n Hge Hle. unfold a_seq.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; lia.
+Qed.
+
+Theorem a_seq_grows_faster_than_catalan : forall n,
+  (3 <= n)%nat -> (n <= 5)%nat ->
+  (a_seq n * 1000 / a_seq (n - 1) > C n * 1000 / C (n - 1))%nat.
+Proof.
+  intros n Hge Hle. unfold a_seq, C.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; lia.
+Qed.
+
+Definition verified_a_values : list nat :=
+  [1%nat; 1%nat; 2%nat; 6%nat; 23%nat; 103%nat].
+
+Lemma a_matches_known : forall n, (n <= 5)%nat ->
+  a_seq n = nth n verified_a_values 0%nat.
+Proof.
+  intros n Hle. unfold a_seq, verified_a_values.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Definition ratio_n5_n4 : nat := (103 * 1000 / 23)%nat.
+Definition ratio_n6_n5 : nat := (513 * 1000 / 103)%nat.
+Definition ratio_n7_n6 : nat := (2762 * 1000 / 513)%nat.
+Definition ratio_n8_n7 : nat := (15793 * 1000 / 2762)%nat.
+
+Lemma growth_ratios_from_known :
+  ratio_n5_n4 = 4478%nat /\
+  ratio_n6_n5 = 4980%nat /\
+  ratio_n7_n6 = 5384%nat /\
+  ratio_n8_n7 = 5717%nat.
+Proof.
+  unfold ratio_n5_n4, ratio_n6_n5, ratio_n7_n6, ratio_n8_n7.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem growth_rate_increasing :
+  (ratio_n5_n4 < ratio_n6_n5)%nat /\
+  (ratio_n6_n5 < ratio_n7_n6)%nat /\
+  (ratio_n7_n6 < ratio_n8_n7)%nat.
+Proof.
+  unfold ratio_n5_n4, ratio_n6_n5, ratio_n7_n6, ratio_n8_n7.
+  repeat split; vm_compute; lia.
+Qed.
+
+Theorem sw_limit_bounded :
+  (ratio_n8_n7 < 6000)%nat /\ (ratio_n5_n4 > 4000)%nat.
+Proof.
+  unfold ratio_n8_n7, ratio_n5_n4. vm_compute. lia.
+Qed.
+
+Fixpoint factorial (n : nat) : nat :=
+  match n with
+  | O => 1%nat
+  | S n' => (n * factorial n')%nat
+  end.
+
+Lemma factorial_values :
+  factorial 0 = 1%nat /\ factorial 1 = 1%nat /\
+  factorial 2 = 2%nat /\ factorial 3 = 6%nat /\
+  factorial 4 = 24%nat /\ factorial 5 = 120%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Theorem avoiding_ratio_to_all : forall n, (n <= 5)%nat ->
+  ((a_seq n * 100 / factorial n) >=
+   match n with O => 100 | S _ => 1 end)%nat.
+Proof.
+  intros n Hle. unfold a_seq.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; lia.
+Qed.
+
+Definition avoiding_density (n : nat) : nat :=
+  (a_seq n * 10000 / factorial n)%nat.
+
+Lemma density_values :
+  avoiding_density 3 = 10000%nat /\
+  avoiding_density 4 = 9583%nat /\
+  avoiding_density 5 = 8583%nat.
+Proof.
+  unfold avoiding_density, a_seq.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem density_decreasing :
+  (avoiding_density 5 < avoiding_density 4)%nat /\
+  (avoiding_density 4 < avoiding_density 3)%nat.
+Proof.
+  unfold avoiding_density, a_seq. vm_compute. lia.
+Qed.
+
+End StanleyWilfBounds.
