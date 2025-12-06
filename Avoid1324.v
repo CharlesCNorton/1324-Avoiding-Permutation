@@ -482,6 +482,58 @@ Proof.
   - apply Nat.eqb_eq.
 Qed.
 
+Lemma max_position_app_larger : forall p n,
+  (forall x, In x p -> (x < n)%nat) ->
+  max_position (p ++ [n]) = length p.
+Proof.
+  intros p n Hbound.
+  unfold max_position.
+  set (find_pos := fix find_pos (idx : nat) (l : list nat) (best_idx best_val : nat) : nat :=
+    match l with
+    | [] => best_idx
+    | x :: xs => if Nat.ltb best_val x then find_pos (S idx) xs idx x else find_pos (S idx) xs best_idx best_val
+    end).
+  destruct n as [|n'].
+  - destruct p as [|a p'].
+    + simpl. reflexivity.
+    + exfalso. specialize (Hbound a (or_introl eq_refl)). lia.
+  - assert (Hgen: forall l idx bi bv,
+      (bv < S n')%nat ->
+      (forall x, In x l -> (x < S n')%nat) ->
+      find_pos idx (l ++ [S n']) bi bv = (idx + length l)%nat).
+    { induction l as [|a l' IH]; intros idx bi bv Hbv Hl.
+      - simpl. assert (Hcmp: (bv <? S n')%nat = true) by (apply Nat.ltb_lt; exact Hbv).
+        rewrite Hcmp. simpl. lia.
+      - simpl. destruct (bv <? a)%nat eqn:Ecmp.
+        + apply Nat.ltb_lt in Ecmp.
+          assert (Ha: (a < S n')%nat) by (apply Hl; left; reflexivity).
+          rewrite IH.
+          * lia.
+          * exact Ha.
+          * intros x Hx. apply Hl. right. exact Hx.
+        + rewrite IH.
+          * lia.
+          * exact Hbv.
+          * intros x Hx. apply Hl. right. exact Hx.
+    }
+    rewrite Hgen.
+    + lia.
+    + lia.
+    + exact Hbound.
+Qed.
+
+Lemma max_at_end_append_larger : forall p n,
+  (forall x, In x p -> (x < n)%nat) ->
+  max_at_end (p ++ [n]) = true.
+Proof.
+  intros p n Hbound.
+  unfold max_at_end.
+  rewrite max_position_app_larger by exact Hbound.
+  rewrite app_length. simpl.
+  rewrite Nat.add_sub.
+  apply Nat.eqb_refl.
+Qed.
+
 End MaxAtEndBijection.
 
 Section CoreBijectionLemma.
@@ -1305,6 +1357,206 @@ Theorem catalan_bijection_verified :
 Proof.
   intros n Hge Hle.
   destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Lemma existsb_false_forall : forall (A : Type) (f : A -> bool) (l : list A),
+  existsb f l = false <-> forall x, In x l -> f x = false.
+Proof.
+  intros A f l.
+  induction l as [|a l' IH].
+  - simpl. split.
+    + intros _ x [].
+    + intros _. reflexivity.
+  - simpl. rewrite orb_false_iff. rewrite IH.
+    split.
+    + intros [Hfa Hl'] x [Heq | Hin].
+      * subst. exact Hfa.
+      * apply Hl'. exact Hin.
+    + intros H. split.
+      * apply H. left. reflexivity.
+      * intros x Hx. apply H. right. exact Hx.
+Qed.
+
+Lemma avoids_1324_iff_not_contains : forall p,
+  avoids_1324 p = true <-> ~ contains_1324 p.
+Proof.
+  intros p.
+  unfold avoids_1324, contains_1324_subseq, contains_1324.
+  rewrite negb_true_iff.
+  rewrite existsb_false_forall.
+  split.
+  - intros Hav [i [j [k [l H]]]].
+    unfold has_1324_at in H.
+    destruct H as [Hij [Hjk [Hkl [Hlen [H1 [H2 H3]]]]]].
+    assert (Hini: In i (seq 0 (length p))).
+    { apply in_seq. split. apply Nat.le_0_l.
+      apply Nat.lt_trans with j. exact Hij.
+      apply Nat.lt_trans with k. exact Hjk.
+      apply Nat.lt_trans with l. exact Hkl. exact Hlen. }
+    assert (Hinj: In j (seq 0 (length p))).
+    { apply in_seq. split. apply Nat.le_0_l.
+      apply Nat.lt_trans with k. exact Hjk.
+      apply Nat.lt_trans with l. exact Hkl. exact Hlen. }
+    assert (Hink: In k (seq 0 (length p))).
+    { apply in_seq. split. apply Nat.le_0_l.
+      apply Nat.lt_trans with l. exact Hkl. exact Hlen. }
+    assert (Hinl: In l (seq 0 (length p))).
+    { apply in_seq. split. apply Nat.le_0_l. exact Hlen. }
+    specialize (Hav i Hini).
+    rewrite existsb_false_forall in Hav.
+    specialize (Hav j Hinj).
+    rewrite existsb_false_forall in Hav.
+    specialize (Hav k Hink).
+    rewrite existsb_false_forall in Hav.
+    specialize (Hav l Hinl).
+    assert (Htrue: ((i <? j) && (j <? k) && (k <? l) &&
+                   (nth i p 0 <? nth k p 0) && (nth k p 0 <? nth j p 0) &&
+                   (nth j p 0 <? nth l p 0))%nat = true).
+    { repeat (apply andb_true_intro; split); apply Nat.ltb_lt; assumption. }
+    rewrite Hav in Htrue. discriminate.
+  - intros Hno i Hini.
+    rewrite existsb_false_forall. intros j Hinj.
+    rewrite existsb_false_forall. intros k Hink.
+    rewrite existsb_false_forall. intros l Hinl.
+    apply in_seq in Hini. apply in_seq in Hinj. apply in_seq in Hink. apply in_seq in Hinl.
+    destruct (Nat.ltb i j) eqn:E1; simpl; try reflexivity.
+    destruct (Nat.ltb j k) eqn:E2; simpl; try reflexivity.
+    destruct (Nat.ltb k l) eqn:E3; simpl; try reflexivity.
+    destruct (Nat.ltb (nth i p 0%nat) (nth k p 0%nat)) eqn:E4; simpl; try reflexivity.
+    destruct (Nat.ltb (nth k p 0%nat) (nth j p 0%nat)) eqn:E5; simpl; try reflexivity.
+    destruct (Nat.ltb (nth j p 0%nat) (nth l p 0%nat)) eqn:E6; simpl; try reflexivity.
+    exfalso. apply Hno.
+    exists i, j, k, l.
+    unfold has_1324_at.
+    apply Nat.ltb_lt in E1. apply Nat.ltb_lt in E2. apply Nat.ltb_lt in E3.
+    apply Nat.ltb_lt in E4. apply Nat.ltb_lt in E5. apply Nat.ltb_lt in E6.
+    destruct Hini as [_ Hini']. destruct Hinj as [_ Hinj'].
+    destruct Hink as [_ Hink']. destruct Hinl as [_ Hinl'].
+    repeat split; assumption.
+Qed.
+
+Lemma avoids_132_iff_not_contains : forall p,
+  avoids_132 p = true <-> ~ contains_132 p.
+Proof.
+  intros p.
+  unfold avoids_132, contains_132_subseq, contains_132.
+  rewrite negb_true_iff.
+  rewrite existsb_false_forall.
+  split.
+  - intros Hav [i [j [k H]]].
+    unfold has_132_at in H.
+    destruct H as [Hij [Hjk [Hklen [H1 H2]]]].
+    assert (Hini: In i (seq 0 (length p))).
+    { apply in_seq. split. apply Nat.le_0_l.
+      apply Nat.lt_trans with j. exact Hij.
+      apply Nat.lt_trans with k. exact Hjk. exact Hklen. }
+    assert (Hinj: In j (seq 0 (length p))).
+    { apply in_seq. split. apply Nat.le_0_l.
+      apply Nat.lt_trans with k. exact Hjk. exact Hklen. }
+    assert (Hink: In k (seq 0 (length p))).
+    { apply in_seq. split. apply Nat.le_0_l. exact Hklen. }
+    specialize (Hav i Hini).
+    rewrite existsb_false_forall in Hav.
+    specialize (Hav j Hinj).
+    rewrite existsb_false_forall in Hav.
+    specialize (Hav k Hink).
+    assert (Htrue: ((i <? j) && (j <? k) &&
+                   (nth i p 0 <? nth k p 0) && (nth k p 0 <? nth j p 0))%nat = true).
+    { repeat (apply andb_true_intro; split); apply Nat.ltb_lt; assumption. }
+    rewrite Hav in Htrue. discriminate.
+  - intros Hno i Hini.
+    rewrite existsb_false_forall. intros j Hinj.
+    rewrite existsb_false_forall. intros k Hink.
+    apply in_seq in Hini. apply in_seq in Hinj. apply in_seq in Hink.
+    destruct (Nat.ltb i j) eqn:E1; simpl; try reflexivity.
+    destruct (Nat.ltb j k) eqn:E2; simpl; try reflexivity.
+    destruct (Nat.ltb (nth i p 0%nat) (nth k p 0%nat)) eqn:E3; simpl; try reflexivity.
+    destruct (Nat.ltb (nth k p 0%nat) (nth j p 0%nat)) eqn:E4; simpl; try reflexivity.
+    exfalso. apply Hno.
+    exists i, j, k.
+    unfold has_132_at.
+    apply Nat.ltb_lt in E1. apply Nat.ltb_lt in E2.
+    apply Nat.ltb_lt in E3. apply Nat.ltb_lt in E4.
+    destruct Hini as [_ Hini']. destruct Hinj as [_ Hinj']. destruct Hink as [_ Hink'].
+    repeat split; assumption.
+Qed.
+
+Lemma not_avoids_132_means_contains : forall p,
+  avoids_132 p = false -> contains_132 p.
+Proof.
+  intros p H.
+  unfold avoids_132 in H.
+  rewrite negb_false_iff in H.
+  unfold contains_132_subseq in H.
+  rewrite existsb_exists in H.
+  destruct H as [i [Hini H]].
+  rewrite existsb_exists in H.
+  destruct H as [j [Hinj H]].
+  rewrite existsb_exists in H.
+  destruct H as [k [Hink H]].
+  apply in_seq in Hini. apply in_seq in Hinj. apply in_seq in Hink.
+  repeat rewrite andb_true_iff in H.
+  destruct H as [[[H1 H2] H3] H4].
+  apply Nat.ltb_lt in H1. apply Nat.ltb_lt in H2.
+  apply Nat.ltb_lt in H3. apply Nat.ltb_lt in H4.
+  exists i, j, k.
+  unfold has_132_at.
+  repeat split; try lia; assumption.
+Qed.
+
+Lemma not_avoids_1324_means_contains : forall p,
+  avoids_1324 p = false -> contains_1324 p.
+Proof.
+  intros p H.
+  unfold avoids_1324 in H.
+  rewrite negb_false_iff in H.
+  unfold contains_1324_subseq in H.
+  rewrite existsb_exists in H.
+  destruct H as [i [Hini H]].
+  rewrite existsb_exists in H.
+  destruct H as [j [Hinj H]].
+  rewrite existsb_exists in H.
+  destruct H as [k [Hink H]].
+  rewrite existsb_exists in H.
+  destruct H as [l [Hinl H]].
+  apply in_seq in Hini. apply in_seq in Hinj. apply in_seq in Hink. apply in_seq in Hinl.
+  repeat rewrite andb_true_iff in H.
+  destruct H as [[[[[H1 H2] H3] H4] H5] H6].
+  apply Nat.ltb_lt in H1. apply Nat.ltb_lt in H2. apply Nat.ltb_lt in H3.
+  apply Nat.ltb_lt in H4. apply Nat.ltb_lt in H5. apply Nat.ltb_lt in H6.
+  exists i, j, k, l.
+  unfold has_1324_at.
+  repeat split; try lia; assumption.
+Qed.
+
+Theorem catalan_bijection_bool : forall prefix n,
+  (forall x, In x prefix -> (x < n)%nat) ->
+  avoids_1324 (prefix ++ [n]) = avoids_132 prefix.
+Proof.
+  intros prefix n Hbound.
+  destruct (avoids_132 prefix) eqn:E132.
+  - apply avoids_1324_iff_not_contains.
+    apply avoids_132_iff_not_contains in E132.
+    apply max_end_1324_iff_prefix_132.
+    + exact Hbound.
+    + exact E132.
+  - destruct (avoids_1324 (prefix ++ [n])) eqn:E1324.
+    + exfalso.
+      apply avoids_1324_iff_not_contains in E1324.
+      apply max_end_1324_iff_prefix_132 in E1324.
+      * apply not_avoids_132_means_contains in E132.
+        contradiction.
+      * exact Hbound.
+    + reflexivity.
+Qed.
+
+Theorem catalan_bijection_general : forall sigma n,
+  (forall x, In x sigma -> (x < n)%nat) ->
+  (avoids_1324 (sigma ++ [n]) = true <-> avoids_132 sigma = true).
+Proof.
+  intros sigma n Hbound.
+  rewrite catalan_bijection_bool by exact Hbound.
+  reflexivity.
 Qed.
 
 End GeneralCatalanBijection.
