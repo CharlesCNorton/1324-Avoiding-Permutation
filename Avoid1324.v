@@ -3,11 +3,24 @@
 (*          1324-Avoiding Permutations: A Machine-Verified Decomposition      *)
 (*                                                                            *)
 (*     Pattern avoidance with max-position analysis. The bijection theorem    *)
-(*     [σ,n] avoids 1324 ⟺ σ avoids 132 establishes the Catalan connection.   *)
-(*     Subpattern containment 132 ⊂ 1324 proven; decomposition verified.      *)
+(*     [sigma,n] avoids 1324 <==> sigma avoids 132 establishes the Catalan    *)
+(*     connection. Subpattern containment 132 < 1324 proven; decomposition    *)
+(*     verified.                                                              *)
 (*                                                                            *)
 (*     "A mathematician, like a painter or poet, is a maker of patterns."    *)
-(*     — G.H. Hardy, A Mathematician's Apology, 1940                          *)
+(*     -- G.H. Hardy, A Mathematician's Apology, 1940                         *)
+(*                                                                            *)
+(*     ---------------------  Sequence Summary  ----------------------------- *)
+(*                                                                            *)
+(*     Number of 1324-avoiding permutations of [n] in which the largest       *)
+(*     element is not in the final position.                                  *)
+(*                                                                            *)
+(*     Values: 1, 4, 18, 89, 471, 2630, 15364  (offset 2)                     *)
+(*                                                                            *)
+(*     Formula: a(n) = (1324-avoiding perms of n) - Catalan(n-1)              *)
+(*                                                                            *)
+(*     Main result verified below:                                            *)
+(*       [sigma, n] avoids 1324  <==>  sigma avoids 132                       *)
 (*                                                                            *)
 (*     Author: Charles C. Norton                                              *)
 (*     Date: December 6, 2025                                                 *)
@@ -2352,3 +2365,244 @@ Proof.
 Qed.
 
 End RecurrenceSearch.
+
+Section PatternSymmetries.
+
+Definition reverse_perm (p : list nat) : list nat :=
+  rev p.
+
+Definition complement_perm (p : list nat) : list nat :=
+  let n := length p in
+  map (fun x => S n - x)%nat p.
+
+Definition contains_231_subseq (p : list nat) : bool :=
+  let n := length p in
+  existsb (fun i1 =>
+    existsb (fun i2 =>
+      existsb (fun i3 =>
+        let v1 := nth i1 p 0%nat in
+        let v2 := nth i2 p 0%nat in
+        let v3 := nth i3 p 0%nat in
+        Nat.ltb i1 i2 && Nat.ltb i2 i3 &&
+        Nat.ltb v2 v1 && Nat.ltb v1 v3
+      ) (seq 0 n)
+    ) (seq 0 n)
+  ) (seq 0 n).
+
+Definition avoids_231 (p : list nat) : bool :=
+  negb (contains_231_subseq p).
+
+Definition contains_213_subseq (p : list nat) : bool :=
+  let n := length p in
+  existsb (fun i1 =>
+    existsb (fun i2 =>
+      existsb (fun i3 =>
+        let v1 := nth i1 p 0%nat in
+        let v2 := nth i2 p 0%nat in
+        let v3 := nth i3 p 0%nat in
+        Nat.ltb i1 i2 && Nat.ltb i2 i3 &&
+        Nat.ltb v2 v1 && Nat.ltb v3 v2
+      ) (seq 0 n)
+    ) (seq 0 n)
+  ) (seq 0 n).
+
+Definition avoids_213 (p : list nat) : bool :=
+  negb (contains_213_subseq p).
+
+Definition count_231_avoiding (n : nat) : nat :=
+  length (filter avoids_231 (perms_of_n n)).
+
+Definition count_213_avoiding (n : nat) : nat :=
+  length (filter avoids_213 (perms_of_n n)).
+
+Lemma all_three_patterns_catalan : forall n, (n <= 4)%nat ->
+  count_132_avoiding n = count_231_avoiding n /\
+  count_231_avoiding n = count_213_avoiding n /\
+  count_213_avoiding n = nth n catalan 0%nat.
+Proof.
+  intros n Hle.
+  destruct n as [|[|[|[|[|]]]]]; try lia;
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem pattern_symmetry_132_231 : forall n, (n <= 4)%nat ->
+  count_132_avoiding n = count_231_avoiding n.
+Proof.
+  intros n Hle.
+  destruct n as [|[|[|[|[|]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+End PatternSymmetries.
+
+Section MonotonicityProperties.
+
+Lemma R_strictly_increasing_values :
+  (R 2 < R 3)%nat /\ (R 3 < R 4)%nat /\ (R 4 < R 5)%nat.
+Proof.
+  unfold R. vm_compute. repeat split; lia.
+Qed.
+
+Lemma a_strictly_increasing_values :
+  (a_seq 1 < a_seq 2)%nat /\
+  (a_seq 2 < a_seq 3)%nat /\ (a_seq 3 < a_seq 4)%nat /\
+  (a_seq 4 < a_seq 5)%nat.
+Proof.
+  unfold a_seq. vm_compute. repeat split; lia.
+Qed.
+
+Lemma a_seq_0_equals_1 : a_seq 0 = a_seq 1.
+Proof. vm_compute. reflexivity. Qed.
+
+Lemma C_strictly_increasing_values :
+  (C 1 < C 2)%nat /\ (C 2 < C 3)%nat /\ (C 3 < C 4)%nat.
+Proof.
+  unfold C. vm_compute. repeat split; lia.
+Qed.
+
+Lemma C_0_equals_1 : C 0 = C 1.
+Proof. vm_compute. reflexivity. Qed.
+
+Lemma R_grows_faster_ratio_values :
+  (R 4 * C 3 > R 3 * C 4)%nat /\ (R 5 * C 4 > R 4 * C 5)%nat.
+Proof.
+  unfold R, C. vm_compute. split; lia.
+Qed.
+
+Definition R_dominance_threshold : nat := 4%nat.
+
+Theorem R_exceeds_C_from_threshold : forall n,
+  (R_dominance_threshold <= n)%nat -> (n <= 5)%nat ->
+  (R n > C (n - 1))%nat.
+Proof.
+  intros n Hge Hle. unfold R, C, R_dominance_threshold in *.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; lia.
+Qed.
+
+End MonotonicityProperties.
+
+Section ExplicitBijection.
+
+Definition sigma_to_extended (sigma : list nat) : list nat :=
+  sigma ++ [S (length sigma)].
+
+Definition extended_to_sigma (p : list nat) : list nat :=
+  removelast p.
+
+Lemma sigma_extended_length : forall sigma,
+  length (sigma_to_extended sigma) = S (length sigma).
+Proof.
+  intros sigma. unfold sigma_to_extended.
+  rewrite app_length. simpl. lia.
+Qed.
+
+Lemma extended_sigma_inverse : forall sigma,
+  extended_to_sigma (sigma_to_extended sigma) = sigma.
+Proof.
+  intros sigma. unfold extended_to_sigma, sigma_to_extended.
+  apply removelast_app_singleton.
+Qed.
+
+Lemma sigma_elements_bound : forall sigma,
+  Permutation sigma (seq 1 (length sigma)) ->
+  forall x, In x sigma -> (x < S (length sigma))%nat.
+Proof.
+  intros sigma Hperm x Hin.
+  apply Permutation_in with (x := x) in Hperm.
+  - apply in_seq in Hperm. lia.
+  - exact Hin.
+Qed.
+
+Theorem bijection_preserves_avoidance : forall sigma,
+  Permutation sigma (seq 1 (length sigma)) ->
+  avoids_1324 (sigma_to_extended sigma) = avoids_132 sigma.
+Proof.
+  intros sigma Hperm.
+  apply catalan_bijection_bool.
+  apply sigma_elements_bound.
+  exact Hperm.
+Qed.
+
+Definition max_end_perms (n : nat) : list (list nat) :=
+  filter (fun p => avoids_1324 p && max_at_end p) (perms_of_n n).
+
+Definition avoiding_132_perms (n : nat) : list (list nat) :=
+  filter avoids_132 (perms_of_n n).
+
+Theorem bijection_count_match : forall n, (n >= 1)%nat -> (n <= 5)%nat ->
+  length (max_end_perms n) = length (avoiding_132_perms (n - 1)).
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+End ExplicitBijection.
+
+Section InteriorDeepAnalysis.
+
+Definition max_at_first (n : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    (max_position p =? 0)%nat
+  ) perms).
+
+Definition max_at_second_last (n : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    (max_position p =? (length p - 2))%nat
+  ) perms).
+
+Lemma max_at_first_values :
+  max_at_first 2 = 1%nat /\
+  max_at_first 3 = 2%nat /\
+  max_at_first 4 = 6%nat /\
+  max_at_first 5 = 23%nat.
+Proof.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem max_at_first_equals_a_prev : forall n, (2 <= n)%nat -> (n <= 5)%nat ->
+  max_at_first n = a_seq (n - 1).
+Proof.
+  intros n Hge Hle. unfold max_at_first, a_seq.
+  destruct n as [|[|[|[|[|[|]]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+End InteriorDeepAnalysis.
+
+Section FurtherStructure.
+
+Definition left_avoids_132_count (n : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    avoids_132 (left_of_max p)
+  ) perms).
+
+Definition right_avoids_132_count (n : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    avoids_132 (right_of_max p)
+  ) perms).
+
+Lemma left_avoids_132_values :
+  left_avoids_132_count 3 = 4%nat /\
+  left_avoids_132_count 4 = 18%nat.
+Proof.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Lemma right_avoids_132_values :
+  right_avoids_132_count 3 = 4%nat /\
+  right_avoids_132_count 4 = 17%nat.
+Proof.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+End FurtherStructure.
