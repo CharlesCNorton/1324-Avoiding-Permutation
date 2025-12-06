@@ -2196,3 +2196,159 @@ Proof.
 Qed.
 
 End OEISCharacterization.
+
+Section InteriorStructuralTheorem.
+
+Definition forms_132_with_max (left right : list nat) (m : nat) : bool :=
+  existsb (fun i =>
+    existsb (fun j =>
+      let li := nth i left 0%nat in
+      let rj := nth j right 0%nat in
+      (li <? rj)%nat && (rj <? m)%nat
+    ) (seq 0 (length right))
+  ) (seq 0 (length left)).
+
+Definition forms_1324_across_max (left right : list nat) (m : nat) : bool :=
+  existsb (fun i1 =>
+    existsb (fun i2 =>
+      existsb (fun j =>
+        let l1 := nth i1 left 0%nat in
+        let l2 := nth i2 left 0%nat in
+        let rj := nth j right 0%nat in
+        (i1 <? i2)%nat && (l1 <? rj)%nat && (rj <? l2)%nat
+      ) (seq 0 (length right))
+    ) (seq 0 (length left))
+  ) (seq 0 (length left)).
+
+Definition interior_valid (left right : list nat) (m : nat) : bool :=
+  avoids_1324 left &&
+  avoids_1324 right &&
+  avoids_132 left &&
+  negb (forms_132_with_max left right m) &&
+  negb (forms_1324_across_max left right m).
+
+Definition count_valid_interiors (n k : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    let left := firstn k p in
+    let m := nth k p 0%nat in
+    let right := skipn (S k) p in
+    (max_position p =? k)%nat &&
+    avoids_1324 p &&
+    negb (max_at_end p)
+  ) perms).
+
+Lemma interior_structure_n3 :
+  count_valid_interiors 3 0 = 2%nat /\
+  count_valid_interiors 3 1 = 2%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Lemma interior_structure_n4 :
+  count_valid_interiors 4 0 = 6%nat /\
+  count_valid_interiors 4 1 = 6%nat /\
+  count_valid_interiors 4 2 = 6%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Theorem interior_position_sum : forall n, (n <= 4)%nat ->
+  (fold_left Nat.add (map (count_valid_interiors n) (seq 0 (n-1))) 0)%nat =
+  avoiding_with_max_interior n.
+Proof.
+  intros n Hle.
+  destruct n as [|[|[|[|[|]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+Definition left_all_less_than_right (left right : list nat) : bool :=
+  forallb (fun li =>
+    forallb (fun rj => (li <? rj)%nat) right
+  ) left.
+
+Definition right_all_less_than_left (left right : list nat) : bool :=
+  forallb (fun rj =>
+    forallb (fun li => (rj <? li)%nat) left
+  ) right.
+
+Definition count_separated_interiors (n : nat) : nat :=
+  let perms := perms_of_n n in
+  length (filter (fun p =>
+    let k := max_position p in
+    let left := firstn k p in
+    let right := skipn (S k) p in
+    avoids_1324 p &&
+    negb (max_at_end p) &&
+    (left_all_less_than_right left right || right_all_less_than_left left right)
+  ) perms).
+
+Lemma separated_interiors_count :
+  count_separated_interiors 3 = 4%nat /\
+  count_separated_interiors 4 = 14%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Definition count_interleaved_interiors (n : nat) : nat :=
+  (avoiding_with_max_interior n - count_separated_interiors n)%nat.
+
+Lemma interleaved_interiors_count :
+  count_interleaved_interiors 3 = 0%nat /\
+  count_interleaved_interiors 4 = 4%nat.
+Proof. repeat split; vm_compute; reflexivity. Qed.
+
+Theorem interior_decomposition_by_separation : forall n, (n <= 4)%nat ->
+  avoiding_with_max_interior n =
+  (count_separated_interiors n + count_interleaved_interiors n)%nat.
+Proof.
+  intros n Hle.
+  unfold count_interleaved_interiors.
+  destruct n as [|[|[|[|[|]]]]]; try lia; vm_compute; reflexivity.
+Qed.
+
+End InteriorStructuralTheorem.
+
+Section RecurrenceSearch.
+
+Definition R_list : list nat :=
+  [0%nat; 0%nat; 1%nat; 4%nat; 18%nat; 89%nat; 471%nat; 2630%nat; 15364%nat].
+
+Definition C_list : list nat :=
+  [1%nat; 1%nat; 2%nat; 5%nat; 14%nat; 42%nat; 132%nat; 429%nat; 1430%nat].
+
+Definition R_over_C (n : nat) : nat :=
+  let rn := nth n R_list 0%nat in
+  let cn := nth n C_list 0%nat in
+  (rn * 1000 / cn)%nat.
+
+Lemma R_to_C_ratio :
+  R_over_C 2 = 500%nat /\
+  R_over_C 3 = 800%nat /\
+  R_over_C 4 = 1285%nat /\
+  R_over_C 5 = 2119%nat.
+Proof.
+  unfold R_over_C, R_list, C_list.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Definition convolution_C_R (n : nat) : nat :=
+  fold_left Nat.add
+    (map (fun k => (nth k C_list 0%nat * nth (n - k) R_list 0%nat)%nat)
+         (seq 0 (S n)))
+    0%nat.
+
+Lemma convolution_values :
+  convolution_C_R 2 = 1%nat /\
+  convolution_C_R 3 = 5%nat /\
+  convolution_C_R 4 = 24%nat.
+Proof.
+  unfold convolution_C_R, C_list, R_list.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem R_growth_bound :
+  forall n, (3 <= n)%nat -> (n <= 7)%nat ->
+  let rn := nth n R_list 0%nat in
+  let rn1 := nth (n-1) R_list 1%nat in
+  (rn * 10 / rn1 >= 40)%nat /\ (rn * 10 / rn1 <= 60)%nat.
+Proof.
+  intros n Hge Hle rn rn1.
+  destruct n as [|[|[|[|[|[|[|[|]]]]]]]]; try lia;
+  unfold rn, rn1, R_list; vm_compute; lia.
+Qed.
+
+End RecurrenceSearch.
