@@ -2079,3 +2079,88 @@ Theorem bijection_to_dyck : forall n, (n >= 1)%nat -> (n <= 5)%nat ->
 Proof. exact complete_chain. Qed.
 
 End ComprehensiveSummary.
+
+Section NewSequenceAnalysis.
+
+Definition known_a_extended : list nat :=
+  [1%nat; 1%nat; 2%nat; 6%nat; 23%nat; 103%nat; 513%nat; 2762%nat; 15793%nat].
+
+Definition known_catalan_extended : list nat :=
+  [1%nat; 1%nat; 2%nat; 5%nat; 14%nat; 42%nat; 132%nat; 429%nat; 1430%nat].
+
+Definition R_from_known (n : nat) : nat :=
+  if (n =? 0)%nat then 0%nat
+  else (nth n known_a_extended 0%nat - nth (n-1) known_catalan_extended 0%nat)%nat.
+
+Lemma R_extended_values :
+  R_from_known 0 = 0%nat /\
+  R_from_known 1 = 0%nat /\
+  R_from_known 2 = 1%nat /\
+  R_from_known 3 = 4%nat /\
+  R_from_known 4 = 18%nat /\
+  R_from_known 5 = 89%nat /\
+  R_from_known 6 = 471%nat /\
+  R_from_known 7 = 2630%nat /\
+  R_from_known 8 = 15364%nat.
+Proof.
+  unfold R_from_known, known_a_extended, known_catalan_extended.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Definition R_seq_new : list nat :=
+  [0%nat; 0%nat; 1%nat; 4%nat; 18%nat; 89%nat; 471%nat; 2630%nat; 15364%nat].
+
+Definition R_first_difference (n : nat) : nat :=
+  (nth (S n) R_seq_new 0%nat - nth n R_seq_new 0%nat)%nat.
+
+Lemma R_differences_values :
+  R_first_difference 2 = 3%nat /\
+  R_first_difference 3 = 14%nat /\
+  R_first_difference 4 = 71%nat /\
+  R_first_difference 5 = 382%nat /\
+  R_first_difference 6 = 2159%nat.
+Proof.
+  unfold R_first_difference, R_seq_new.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Definition R_ratio_x1000 (n : nat) : nat :=
+  let curr := nth n R_seq_new 0%nat in
+  let prev := nth (n-1) R_seq_new 1%nat in
+  (curr * 1000 / prev)%nat.
+
+Lemma R_ratio_values :
+  R_ratio_x1000 3 = 4000%nat /\
+  R_ratio_x1000 4 = 4500%nat /\
+  R_ratio_x1000 5 = 4944%nat /\
+  R_ratio_x1000 6 = 5292%nat /\
+  R_ratio_x1000 7 = 5583%nat /\
+  R_ratio_x1000 8 = 5841%nat.
+Proof.
+  unfold R_ratio_x1000, R_seq_new.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem R_sequence_novel :
+  R_from_known 2 = 1%nat /\
+  R_from_known 3 = 4%nat /\
+  R_from_known 4 = 18%nat /\
+  R_from_known 5 = 89%nat /\
+  R_from_known 6 = 471%nat /\
+  R_from_known 7 = 2630%nat /\
+  R_from_known 8 = 15364%nat.
+Proof.
+  unfold R_from_known, known_a_extended, known_catalan_extended.
+  repeat split; vm_compute; reflexivity.
+Qed.
+
+Theorem R_dominance_ratio :
+  forall n, (3 <= n)%nat -> (n <= 8)%nat ->
+  (nth n R_seq_new 0%nat * 100 / nth n known_a_extended 0%nat >= 50)%nat.
+Proof.
+  intros n Hge Hle.
+  destruct n as [|[|[|[|[|[|[|[|[|]]]]]]]]]; try lia;
+  unfold R_seq_new, known_a_extended; vm_compute; lia.
+Qed.
+
+End NewSequenceAnalysis.
